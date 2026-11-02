@@ -1,0 +1,81 @@
+# Docker Swarm – Short Command Notes
+
+Assumption: Two Debian machines — one Manager and one Worker.
+
+### 1. Initialize Swarm (Manager)
+
+```
+docker swarm init --advertise-addr MANAGER_PRIVATE_IP
+```
+
+### 2. Get Worker Join Command (Manager)
+
+```
+docker swarm join-token worker
+```
+
+### 3. Join Worker (Worker machine)
+
+Run the join command displayed by the Manager:
+
+```
+docker swarm join --token WORKER_TOKEN MANAGER_PRIVATE_IP:2377
+```
+
+### 4. Check Nodes (Manager)
+
+```
+docker node ls
+```
+
+### 5. Create Service (Manager)
+
+```
+docker service create --name web --replicas 2 -p 8080:80 nginx
+```
+
+### 6. List Services and Tasks
+
+```
+docker service ls
+docker service ps web
+```
+
+### 7. Scale Service
+
+```
+docker service scale web=4
+```
+
+### 8. Inspect Service
+
+```
+docker service inspect web
+```
+
+### 9. View Service Logs
+
+```
+docker service logs web
+```
+
+### 10. Remove Service
+
+```
+docker service rm web
+```
+
+### 11. Remove Worker from Swarm
+
+Run on Worker:
+
+```
+docker swarm leave
+```
+
+### 12. Remove Manager from Swarm
+
+Run on Manager:
+
+```
+docker swarm leave --force
