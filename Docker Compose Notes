@@ -1,0 +1,104 @@
+# Docker Compose – Short Command Notes
+
+### 1. Check Docker Compose version
+
+```
+docker compose version
+```
+
+### 2. Create project directory
+
+```
+mkdir compose-project
+cd compose-project
+```
+
+### 3. Create Compose file
+
+Run on: Debian machine.
+
+```
+nano compose.yaml
+```
+
+Add two HTTPD services:
+
+```
+services:
+  web1:
+    image: httpd
+    container_name: web1
+    ports:
+      - "8081:80"
+    volumes:
+      - ./web1:/usr/local/apache2/htdocs:ro
+
+  web2:
+    image: httpd
+    container_name: web2
+    ports:
+      - "8082:80"
+    volumes:
+      - ./web2:/usr/local/apache2/htdocs:ro
+```
+
+### 4. Create website files
+
+```
+mkdir web1 web2
+echo "Welcome to Web1" > web1/index.html
+echo "Welcome to Web2" > web2/index.html
+```
+
+### 5. Validate Compose file
+
+```
+docker compose config
+```
+
+### 6. Start containers
+
+```
+docker compose up -d
+```
+
+### 7. Check containers
+
+```
+docker compose ps
+```
+
+### 8. View logs
+
+```
+docker compose logs
+```
+
+Follow logs continuously:
+
+```
+docker compose logs -f
+```
+
+### 9. Test websites
+
+```
+curl http://localhost:8081
+curl http://localhost:8082
+```
+
+Browser access:
+
+- `http://SERVER_IP:8081`
+- `http://SERVER_IP:8082`
+
+### 10. Stop and remove containers
+
+```
+docker compose down
+```
+
+### 11. Rebuild and start
+
+```
+docker compose up -d --build
