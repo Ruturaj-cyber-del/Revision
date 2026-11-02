@@ -1,0 +1,173 @@
+# Puppet – Short Command Notes
+
+Setup: Two Debian 13 machines.
+
+- Puppet Server: Stores manifests and controls configuration.
+- Puppet Agent: Connects to the server and applies configurations.
+
+### 1. Set hostnames
+
+Run on Puppet Server:
+
+```
+sudo hostnamectl set-hostname puppet-server
+```
+
+Run on Puppet Agent:
+
+```
+sudo hostnamectl set-hostname puppet-agent
+```
+
+### 2. Configure name resolution
+
+Run on both machines:
+
+```
+sudo nano /etc/hosts
+```
+
+Add:
+
+```
+SERVER_PRIVATE_IP puppet-server
+AGENT_PRIVATE_IP puppet-agent
+```
+
+### 3. Install Puppet repository
+
+Run on both machines:
+
+```
+sudo apt update
+sudo apt install -y wget
+wget https://apt.puppet.com/puppet8-release-trixie.deb
+sudo dpkg -i puppet8-release-trixie.deb
+sudo apt update
+```
+
+### 4. Install Puppet Server
+
+Run on Puppet Server:
+
+```
+sudo apt install -y puppetserver
+```
+
+### 5. Install Puppet Agent
+
+Run on Puppet Agent:
+
+```
+sudo apt install -y puppet-agent
+```
+
+### 6. Configure Puppet Server
+
+Run on Puppet Server:
+
+```
+sudo nano /etc/puppetlabs/puppet/puppet.conf
+```
+
+Add:
+
+```
+[main]
+certname = puppet-server
+server = puppet-server
+```
+
+Start Puppet Server:
+
+```
+sudo systemctl enable --now puppetserver
+sudo systemctl status puppetserver
+```
+
+### 7. Configure Puppet Agent
+
+Run on Puppet Agent:
+
+```
+sudo nano /etc/puppetlabs/puppet/puppet.conf
+```
+
+Add:
+
+```
+[main]
+certname = puppet-agent
+server = puppet-server
+```
+
+### 8. Request Agent Certificate
+
+Run on Puppet Agent:
+
+```
+sudo /opt/puppetlabs/bin/puppet agent --test
+```
+
+### 9. Sign Agent Certificate
+
+Run on Puppet Server:
+
+```
+sudo /opt/puppetlabs/bin/puppetserver ca list
+sudo /opt/puppetlabs/bin/puppetserver ca sign --certname puppet-agent
+```
+
+### 10. Create Puppet Manifest
+
+Run on Puppet Server:
+
+```
+sudo nano /etc/puppetlabs/code/environments/production/manifests/site.pp
+```
+
+Add:
+
+```
+node 'puppet-agent' {
+  package { 'apache2':
+    ensure => installed,
+  }
+
+  service { 'apache2':
+    ensure  => running,
+    enable  => true,
+    require => Package['apache2'],
+  }
+
+  file { '/var/www/html/index.html':
+    ensure  => file,
+    content => 'Apache configured using Puppet!',
+    require => Package['apache2'],
+  }
+}
+```
+
+### 11. Apply Manifest
+
+Run on Puppet Agent:
+
+```
+sudo /opt/puppetlabs/bin/puppet agent --test
+```
+
+### 12. Verify Apache
+
+Run on Puppet Agent:
+
+```
+sudo systemctl status apache2
+curl http://localhost
+```
+
+Browser:
+
+```
+http://AGENT_PRIVATE_IP
+```
+
