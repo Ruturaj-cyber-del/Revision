@@ -1,0 +1,1669 @@
+1. DOCKER — HTTPD CONTAINER AND CUSTOM IMAGE
+- Debian 13 VM or AWS Debian instance
+- Internet connection
+- Docker Hub account
+- Allow all traffic in setting
+## Install Docker
+
+sudo apt update
+sudo apt install docker.io -y
+add the current user to docker group (duplicate or restart the system to apply the changes)
+sudo systemctl enable --now docker
+sudo docker --version
+add the current user to docker group
+
+# VERSION 1: Run an Existing HTTPD Image
+
+### Step 1: Pull the HTTPD image
+sudo docker pull httpd
+### Step 2: Create and run the container
+sudo docker run -d -p 8000:80 --name web5 httpd
+### Step 3: Create an HTML file
+[create the dic]
+echo "<h1>Welcome to Docker Practical</h1>" > index.html
+### Step 4: Copy the file into the container
+sudo docker cp index.html web5:/usr/local/apache2/htdocs/index.html
+### Step 5: Verify the website
+sudo docker ps
+curl http://localhost:8000
+### Step 6: Modify the HTML file
+echo "<h1>Website Updated Successfully</h1>" > index.html
+###Copy the updated file:
+sudo docker cp index.html web5:/usr/local/apache2/htdocs/index.html
+###Verify again:
+curl http://localhost:8000
+Expected result:** The updated webpage is displayed.
+======================================================================================================================================================================================
+
+# VERSION 2: Dockerfile — Build, Push, Pull and Run
+
+### Step 1: Create a project directory
+mkdir dockerfile-practical
+cd dockerfile-practical
+### Step 2: Create an HTML file
+echo "<h1>My Custom Docker Image</h1>" > index.html
+### Step 3: Create a Dockerfile
+nano Dockerfile
+###Add:
+FROM httpd:latest
+COPY index.html /usr/local/apache2/htdocs/index.html
+EXPOSE 80
+### Step 4: Build the Docker image
+First create the repo name in dockerhub [myweb]
+Replace `yourusername` with your Docker Hub username.
+sudo docker build -t rutuarjk/myweb:v1 .
+###Verify:
+sudo docker images
+### Step 5: Login to Docker Hub
+sudo docker login
+docker login
+Authenticate using your Docker Hub credentials or access token.
+### Step 6: Push the image to Docker Hub
+sudo docker push rutuarjk/myweb:v1
+###Verify that the image appears in your Docker Hub repository.
+### Step 7: Remove the local custom image (optional)
+sudo docker image rm yourusername/myweb:v1
+This demonstrates downloading the image again from Docker Hub.
+### Step 8: Pull the image from Docker Hub
+sudo docker pull rutuarjk/myweb:v1
+### Step 9: Run a container using the pulled image
+sudo docker run -d -p 8000:80 --name myweb-container rutuarjk/myweb:v1
+### Step 10: Verify
+sudo docker ps
+curl http://localhost:8000
+**Expected result:**
+<h1>My Custom Docker Image</h1>
+## Cleanup
+sudo docker stop web5
+sudo docker rm web5
+
+sudo docker stop myweb-container
+sudo docker rm myweb-container
+```
+=====================================================================================================================================================================================
+
+2. DOCKER COMPOSE — MULTIPLE HTTPD CONTAINERS
+
+## Aim
+
+To create and run two Apache HTTPD containers using Docker Compose, host separate websites on different ports, and link the webpages.
+
+## Requirements
+
+- Debian 13 VM or AWS Debian instance
+- Docker Engine installed
+- Docker Compose plugin
+- Internet connectivity
+- Add the 8081 and 8082 in aws instance traffic
+- add the current user into the docker group
+
+---
+
+## Step 1: Verify Docker Compose
+
+```
+sudo docker compose version
+```
+
+If unavailable, install the Compose plugin if provided by your configured Debian repository:
+
+```
+sudo apt update
+sudo apt install docker-compose -y
+```
+
+Verify the available command:
+
+```
+docker-compose version
+```
+
+Use `docker compose` if the plugin is installed; otherwise use `docker-compose` where supported.
+
+---
+
+## Step 2: Create Project Directories
+
+```
+mkdir docker-compose-practical
+cd docker-compose-practical
+
+mkdir site1 site2
+```
+
+Directory structure:
+
+```
+docker-compose-practical/
+├── compose.yaml
+├── site1/
+│   └── index.html
+└── site2/
+    └── index.html
+```
+
+---
+
+## Step 3: Create Website 1
+
+```
+nano site1/index.html
+```
+
+Add: To access from the browser add the aws pubilic ip insted of localhost in both index file 
+
+```
+<html>
+<body>
+<h1>Welcome to Website 1</h1>
+<a href="http://localhost:8082">Visit Website 2</a>
+</body>
+</html>
+```
+
+Save and exit.
+
+---
+
+
+## Step 4: Create Website 2
+
+```
+nano site2/index.html
+```
+
+Add:
+
+```
+<html>
+<body>
+<h1>Welcome to Website 2</h1>
+<a href="http://localhost:8081">Visit Website 1</a>
+</body>
+</html>
+```
+
+Save and exit.
+
+---
+
+## Step 5: Create Docker Compose File
+
+```
+nano compose.yaml
+```
+
+Add:
+
+```
+services:
+  web1:
+    image: httpd:latest
+    container_name: compose-web1
+    ports:
+      - "8081:80"
+    volumes:
+      - ./site1:/usr/local/apache2/htdocs:ro
+
+  web2:
+    image: httpd:latest
+    container_name: compose-web2
+    ports:
+      - "8082:80"
+    volumes:
+      - ./site2:/usr/local/apache2/htdocs:ro
+```
+
+Save and exit.
+
+
+---
+
+## Step 6: Validate Compose Configuration
+
+```
+sudo docker compose config
+```
+
+This checks the Compose YAML configuration.
+
+## Step 7: Start Both Containers
+
+```
+sudo docker compose up -d
+```
+
+- `up`: Creates and starts services.
+- `-d`: Runs containers in the background.
+
+## Step 8: Verify Containers
+
+```
+sudo docker compose ps
+```
+
+Expected containers:
+
+- `compose-web1`
+- `compose-web2`
+
+## Step 9: Test Both Websites
+
+Test Website 1:
+
+```
+curl http://localhost:8081
+```
+
+Test Website 2:
+
+```
+curl http://localhost:8082
+```
+
+Expected output should contain:
+
+```
+<h1>Welcome to Website 1</h1>
+```
+
+and:
+
+```
+<h1>Welcome to Website 2</h1>
+```
+
+Open in browser:
+
+```
+http://VM-IP-ADDRESS:8081
+http://VM-IP-ADDRESS:8082
+```
+
+Click the links to navigate between the websites.
+
+**Note:** For AWS or remote VM access, allow only the required inbound TCP ports from the required source IP/network.
+
+---
+
+## Step 10: Useful Docker Compose Commands
+
+```
+# List services
+sudo docker compose ps
+
+# View logs
+sudo docker compose logs
+
+# Follow logs
+sudo docker compose logs -f
+
+# Stop containers
+sudo docker compose stop
+
+# Start stopped containers
+sudo docker compose start
+
+# Restart services
+sudo docker compose restart
+
+# Stop and remove containers and network
+sudo docker compose down
+```
+## Cleanup
+
+```
+sudo docker compose down
+```
+
+This removes the containers and default Compose network. Website files remain in the project directory.
+
+=====================================================================================================================================================================================
+3. DOCKER SWARM — CLUSTER AND SERVICE DEPLOYMENT
+
+## Aim
+
+To initialize a Docker Swarm cluster, join worker nodes, deploy a replicated HTTPD service, and scale the service.
+
+## Requirements
+
+- Minimum 2 Debian 13 VMs or AWS EC2 instances.
+- Docker installed on both machines.
+- Network connectivity between nodes.
+- SSH access to both machines.
+
+## Node Configuration
+
+| Machine | Role |
+|---|---|
+| VM1 | Swarm Manager |
+| VM2 | Swarm Worker |
+
+Use private IP addresses for communication between nodes.
+
+---
+
+## Step 1: Verify Docker on Both Machines
+
+Run on VM1 and VM2:
+
+```bash
+sudo docker --version
+sudo systemctl status docker
+```
+
+## Step 2: Initialize Swarm on Manager
+
+Run on VM1:
+
+```bash
+sudo docker swarm init --advertise-addr MANAGER_PUBLIC_IP
+```
+
+Example:
+
+```bash
+sudo docker swarm init --advertise-addr 172.20.5.10
+```
+
+Expected result: Swarm initialized successfully and VM1 becomes the manager.
+
+## Step 3: Generate Worker Join Command
+
+On VM1:
+
+```bash
+sudo docker swarm join-token worker
+```
+
+Copy the displayed join command.
+
+Example:
+
+```bash
+sudo docker swarm join --token SWMTKN-1-xxxx MANAGER_PRIVATE_IP:2377
+```
+
+## Step 4: Join Worker Node
+
+On VM2, execute the actual join command obtained from VM1:
+
+```bash
+sudo docker swarm join --token WORKER_TOKEN MANAGER_PRIVATE_IP:2377
+```
+
+Expected result:
+
+```text
+This node joined a swarm as a worker.
+```
+
+## Step 5: Verify Cluster Nodes
+
+On VM1:
+
+```bash
+sudo docker node ls
+```
+
+Expected nodes:
+
+- VM1 — Manager / Leader
+- VM2 — Worker / Ready
+
+## Step 6: Deploy HTTPD Service
+*** Add the 2377 and 8080 in inbound of instances
+
+On VM1:
+
+```bash
+sudo docker service create \
+  --name webservice \
+  --replicas 3 \
+  --publish published=8080,target=80 \
+  httpd
+```
+
+## Step 7: Verify Service
+
+```bash
+sudo docker service ls
+```
+
+View individual tasks:
+
+```bash
+sudo docker service ps webservice
+```
+
+Expected result: Three running replicas, distributed across available nodes when resources and scheduling permit.
+
+## Step 8: Scale the Service
+
+Increase replicas to five:
+
+```bash
+sudo docker service scale webservice=5
+```
+
+Verify:
+
+```bash
+sudo docker service ls
+sudo docker service ps webservice
+```
+
+Expected result: Five running replicas.
+
+## Step 9: Test the Website
+
+From VM1:
+
+```bash
+curl http://localhost:8080
+```
+
+Open in browser:
+
+```text
+http://MANAGER_PUBLIC_IP:8080
+http://NODE_PUBLIC_IP:8080
+```
+
+Expected result: Apache HTTPD test page.
+
+---
+
+## Important Docker Swarm Commands
+
+```bash
+# Check Swarm status
+sudo docker info
+
+# List cluster nodes
+sudo docker node ls
+
+# List services
+sudo docker service ls
+
+# Inspect service
+sudo docker service inspect webservice
+
+# List service tasks
+sudo docker service ps webservice
+
+# Scale service
+sudo docker service scale webservice=2
+
+# View service logs
+sudo docker service logs webservice
+
+# Remove service
+sudo docker service rm webservice
+
+# Generate worker join token
+sudo docker swarm join-token worker
+
+# Leave Swarm (worker)
+sudo docker swarm leave
+
+# Leave Swarm (manager, after removing services/nodes)
+sudo docker swarm leave --force
+```
+
+## Required Network Ports
+
+Allow these ports only between trusted Swarm nodes:
+
+| Port | Protocol | Purpose |
+|---|---|---|
+| 2377 | TCP | Cluster management |
+| 7946 | TCP/UDP | Node communication |
+| 4789 | UDP | Overlay network traffic |
+  8080
+
+## Cleanup
+
+On VM1:
+
+```bash
+sudo docker service rm webservice
+```
+
+On VM2:
+
+```bash
+sudo docker swarm leave
+```
+
+On VM1:
+
+```bash
+sudo docker swarm leave --force
+```
+=====================================================================================================================================================================================
+Practical 4 – Jenkins CI/CD with GitHub, Docker and NGINX [My way]
+Allow port 8080 on Jenkins machines
+3 macinhe - 1.Dev 2.Jenkins 3.Webserver
+i.Dev - Git
+ii.Jenkins - Docker [add the jenkins user to docker [admin>sudo -s>su jenkins>sudo usermod jenkins -aG docker (duplicate the session after this)> do ssh key gen > access the webserver through pem key and endter the jenkins key into it]]
+iii. Install docker [docker login]
+1. Jenkins Installation [Jenkins Machine]
+
+sudo apt update
+sudo apt install fontconfig openjdk-21-jre
+java -version
+sudo wget -O /etc/apt/keyrings/jenkins-keyring.asc \
+  https://pkg.jenkins.io/debian-stable/jenkins.io-2026.key
+echo "deb [signed-by=/etc/apt/keyrings/jenkins-keyring.asc]" \
+  https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
+  /etc/apt/sources.list.d/jenkins.list > /dev/null
+sudo apt update
+sudo apt install jenkins
+sudo systemctl enable jenkins
+sudo systemctl start jenkins
+sudo systemctl status jenkins
+
+
+
+2 .Nginx Dockerfile [Dev Machine]
+
+-- Create the index file in same dict 
+
+-- Dockerfile nginx
+FROM nginx:latest
+
+COPY index.html /usr/share/nginx/html/index.html
+
+EXPOSE 80
+
+--Dockerfile  httpd
+FROM httpd:latest
+
+COPY index.html /usr/local/apache2/htdocs/index.html
+
+EXPOSE 80
+
+
+-- Jenkins Build Step [Jenkins Website]
+pwd whoami
+docker build -t username/repo:tag
+docker push username/repo:tag
+
+ssh admin@webserver docker pull username/repo:tag
+ssh admin@webserver docker run -d --name web -p 80:80 username/repo:tag
+
+
+======================================================================================================================================================================================
+4. Jenkins CI/CD with GitHub, Docker and NGINX
+
+## 1. Machine Requirements
+
+Use **one Debian 13 machine** for:
+- Jenkins
+- Docker
+- Git
+- NGINX containers
+
+Use your computer's browser and GitHub website for configuration.
+
+## 2. Install Required Packages
+
+**Run on: Debian machine**
+
+```bash
+sudo apt update
+sudo apt install -y git docker.io
+sudo systemctl enable --now docker
+```
+
+Verify:
+
+```bash
+git --version
+sudo docker version
+```
+
+## 3. Install Jenkins
+
+**Run on: Debian machine**
+
+Create `jenkins.sh`:
+
+```bash
+#!/bin/bash
+set -e
+
+sudo apt update
+sudo apt install -y fontconfig openjdk-21-jre wget
+
+java -version
+
+sudo mkdir -p /etc/apt/keyrings
+
+sudo wget -O /etc/apt/keyrings/jenkins-keyring.asc \
+https://pkg.jenkins.io/debian-stable/jenkins.io-2026.key
+
+echo "deb [signed-by=/etc/apt/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/" \
+| sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
+
+sudo apt update
+sudo apt install -y jenkins
+
+sudo systemctl enable jenkins
+sudo systemctl start jenkins
+sudo systemctl status jenkins --no-pager
+
+sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+```
+
+Execute:
+
+```bash
+chmod +x jenkins.sh
+./jenkins.sh
+```
+
+## 4. Configure Jenkins
+
+**Perform in: Browser**
+
+1. Open `http://SERVER_IP:8080`.
+2. Enter the initial administrator password.
+3. Select **Install suggested plugins**.
+4. Create an administrator account.
+
+## 5. Configure Docker Access
+
+**Run on: Debian machine**
+
+```bash
+sudo usermod -aG docker jenkins
+sudo systemctl restart jenkins
+```
+
+Verify:
+
+```bash
+id jenkins
+sudo -u jenkins docker version
+```
+
+## 6. Generate GitHub SSH Key
+
+**Run on: Debian machine**
+
+```bash
+sudo -u jenkins mkdir -p /var/lib/jenkins/.ssh
+
+sudo -u jenkins ssh-keygen -t ed25519 \
+-f /var/lib/jenkins/.ssh/github_key \
+-C "jenkins-github" -N ""
+
+sudo chmod 600 /var/lib/jenkins/.ssh/github_key
+sudo chmod 644 /var/lib/jenkins/.ssh/github_key.pub
+```
+
+Display public key:
+
+```bash
+sudo cat /var/lib/jenkins/.ssh/github_key.pub
+```
+
+## 7. Add Public Key to GitHub
+
+**Perform in: GitHub website**
+
+1. Create a repository named `jenkins-nginx-project`.
+2. Open **Settings → Deploy keys**.
+3. Click **Add deploy key**.
+4. Title: `Jenkins Debian`.
+5. Paste the public key.
+6. Keep write access disabled.
+7. Click **Add key**.
+
+## 8. Add Private Key to Jenkins
+
+**Perform in: Jenkins browser dashboard**
+
+1. Open **Manage Jenkins → Credentials**.
+2. Select the appropriate global domain.
+3. Click **Add Credentials**.
+4. Select **SSH Username with private key**.
+5. Configure:
+
+| Field | Value |
+|---|---|
+| ID | `github-ssh` |
+| Username | `git` |
+| Private Key | Enter directly |
+
+**Get private key: Run on Debian machine**
+
+```bash
+sudo cat /var/lib/jenkins/.ssh/github_key
+```
+
+Copy the private key and paste it into Jenkins under **Private Key → Enter directly**. Save.
+
+## 9. Create NGINX Project
+
+**Run on: Debian machine**
+
+```bash
+mkdir -p ~/jenkins-nginx-project
+cd ~/jenkins-nginx-project
+```
+
+Project structure:
+
+```text
+jenkins-nginx-project/
+├── index.html
+├── Dockerfile
+└── Jenkinsfile
+```
+
+### A. Create index.html
+
+**Run on: Debian machine**
+
+```bash
+nano index.html
+```
+
+Enter:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Jenkins NGINX CI/CD</title>
+</head>
+<body>
+    <h1>Jenkins NGINX CI/CD Successful!</h1>
+    <h2>GitHub + Jenkins + Docker + NGINX</h2>
+    <p>Website deployed successfully.</p>
+</body>
+</html>
+```
+
+Save the file.
+
+### B. Create Dockerfile
+
+**Run on: Debian machine**
+
+```bash
+nano Dockerfile
+```
+
+Enter:
+
+```dockerfile
+FROM nginx:latest
+
+COPY index.html /usr/share/nginx/html/index.html
+
+EXPOSE 80
+```
+
+Save the file.
+
+## 10. Push Project to GitHub
+
+**Run on: Debian machine, inside project directory**
+
+Create an empty GitHub repository named `jenkins-nginx-project`.
+
+Execute:
+
+```bash
+git init
+git branch -M main
+
+git add .
+git commit -m "Initial NGINX project"
+
+git remote add origin git@github.com:YOUR_USERNAME/jenkins-nginx-project.git
+
+git push -u origin main
+```
+
+Replace `YOUR_USERNAME` with your GitHub username.
+
+## 11. Create Freestyle Project
+
+**Perform in: Jenkins browser dashboard**
+
+1. Click **New Item**.
+2. Enter `NGINX-FREESTYLE`.
+3. Select **Freestyle project**.
+4. Click **OK**.
+
+### A. Configure Git Repository
+
+Under **Source Code Management → Git**:
+
+| Field | Value |
+|---|---|
+| Repository URL | `git@github.com:YOUR_USERNAME/jenkins-nginx-project.git` |
+| Credentials | `github-ssh` |
+| Branch | `*/main` |
+
+### B. Configure Build Steps
+
+1. Go to **Build Steps**.
+2. Select **Add build step → Execute shell**.
+3. Enter:
+
+```bash
+docker build -t my-nginx-website:freestyle .
+
+docker rm -f jenkins-nginx-freestyle || true
+
+docker run -d \
+--name jenkins-nginx-freestyle \
+--restart unless-stopped \
+-p 8086:80 \
+my-nginx-website:freestyle
+
+docker ps
+sleep 3
+curl -f http://localhost:8086
+```
+
+4. Click **Save**.
+5. Click **Build Now**.
+6. Open **Console Output** and verify success.
+
+### C. Verify Deployment
+
+**Run on: Debian machine**
+
+```bash
+sudo docker ps
+curl http://localhost:8086
+```
+
+**Open in browser:**
+
+`http://SERVER_IP:8086`
+
+## 12. Create Jenkinsfile
+
+**Run on: Debian machine, inside `~/jenkins-nginx-project`**
+
+```bash
+nano Jenkinsfile
+```
+
+Enter:
+
+```groovy
+pipeline {
+    agent any
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t my-nginx-website:pipeline .'
+            }
+        }
+
+        stage('Remove Old Container') {
+            steps {
+                sh 'docker rm -f jenkins-nginx-pipeline || true'
+            }
+        }
+
+        stage('Deploy NGINX') {
+            steps {
+                sh '''
+                    docker run -d \
+                    --name jenkins-nginx-pipeline \
+                    --restart unless-stopped \
+                    -p 8087:80 \
+                    my-nginx-website:pipeline
+                '''
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                sh 'docker ps'
+                sh 'sleep 3 && curl -f http://localhost:8087'
+            }
+        }
+    }
+}
+```
+
+Save the file.
+
+## 13. Push Jenkinsfile to GitHub
+
+**Run on: Debian machine**
+
+```bash
+git add Jenkinsfile
+git commit -m "Add NGINX Jenkins pipeline"
+git push
+```
+
+## 14. Create Pipeline Project
+
+**Perform in: Jenkins browser dashboard**
+
+1. Click **New Item**.
+2. Enter `NGINX-PIPELINE`.
+3. Select **Pipeline**.
+4. Click **OK**.
+
+### A. Configure Pipeline from SCM
+
+| Field | Value |
+|---|---|
+| Definition | Pipeline script from SCM |
+| SCM | Git |
+| Repository URL | `git@github.com:YOUR_USERNAME/jenkins-nginx-project.git` |
+| Credentials | `github-ssh` |
+| Branch | `*/main` |
+| Script Path | `Jenkinsfile` |
+
+### B. Execute Pipeline
+
+1. Click **Save**.
+2. Click **Build Now**.
+3. Open **Console Output**.
+4. Verify successful execution.
+
+### C. Verify Deployment
+
+**Run on: Debian machine**
+
+```bash
+sudo docker ps
+curl http://localhost:8087
+```
+
+**Open in browser:**
+
+`http://SERVER_IP:8087`
+
+## 15. Test Updated Website
+
+**Run on: Debian machine, inside project directory**
+
+Modify `index.html`:
+
+```html
+<h1>Version 2 - NGINX Deployment Successful!</h1>
+```
+
+Push changes:
+
+```bash
+git add .
+git commit -m "Update NGINX website"
+git push
+```
+
+**Perform in: Jenkins browser dashboard**
+
+1. Open `NGINX-FREESTYLE` and click **Build Now**.
+2. Open `NGINX-PIPELINE` and click **Build Now**.
+
+Verify:
+
+```bash
+curl http://localhost:8086
+curl http://localhost:8087
+```
+
+## 16. Cleanup
+
+**Run on: Debian machine**
+
+```bash
+sudo docker rm -f jenkins-nginx-freestyle
+sudo docker rm -f jenkins-nginx-pipeline
+```
+
+=====================================================================================================================================================================================
+5. Jenkins CI/CD with GitHub, Docker and HTTPD (Apache)
+
+## 1. Machine Requirements
+
+Use **one Debian 13 machine** for:
+
+- Jenkins
+- Docker
+- Git
+- Apache HTTPD containers
+
+Use your computer's browser and GitHub website for configuration.
+
+**Note:** Reuse the Jenkins installation, Docker configuration and SSH credentials from the NGINX practical.
+
+## 2. Create HTTPD Project
+
+**Run on: Debian machine**
+
+```
+mkdir -p ~/jenkins-httpd-project
+cd ~/jenkins-httpd-project
+```
+
+Project structure:
+
+```
+jenkins-httpd-project/
+├── index.html
+├── Dockerfile
+└── Jenkinsfile
+```
+
+### A. Create index.html
+
+**Run on: Debian machine**
+
+```
+nano index.html
+```
+
+Enter:
+
+```
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Jenkins HTTPD CI/CD</title>
+</head>
+<body>
+    <h1>Jenkins HTTPD CI/CD Successful!</h1>
+    <h2>GitHub + Jenkins + Docker + Apache HTTPD</h2>
+    <p>Website deployed successfully.</p>
+</body>
+</html>
+```
+
+Save the file.
+
+### B. Create Dockerfile
+
+**Run on: Debian machine**
+
+```
+nano Dockerfile
+```
+
+Enter:
+
+```
+FROM httpd:latest
+
+COPY index.html /usr/local/apache2/htdocs/index.html
+
+EXPOSE 80
+```
+
+Save the file.
+
+## 3. Create GitHub Repository
+
+**Perform in: GitHub website**
+
+1. Create an empty repository named `jenkins-httpd-project`.
+2. Do not initialize it with a README.
+3. Open **Settings → Deploy keys**.
+4. Click **Add deploy key**.
+5. Title: `Jenkins Debian`.
+6. Paste the same public key used in the NGINX practical:
+
+**Get public key – Run on Debian machine:**
+
+```
+sudo cat /var/lib/jenkins/.ssh/github_key.pub
+```
+
+7. Keep write access disabled.
+8. Click **Add key**.
+
+## 4. Push Project to GitHub
+
+**Run on: Debian machine, inside `~/jenkins-httpd-project`**
+
+```
+git init
+git branch -M main
+
+git add .
+git commit -m "Initial HTTPD project"
+
+git remote add origin git@github.com:YOUR_USERNAME/jenkins-httpd-project.git
+
+git push -u origin main
+```
+
+Replace `YOUR_USERNAME` with your GitHub username.
+
+## 5. Create Freestyle Project
+
+**Perform in: Jenkins browser dashboard**
+
+1. Click **New Item**.
+2. Enter `HTTPD-FREESTYLE`.
+3. Select **Freestyle project**.
+4. Click **OK**.
+
+### A. Configure Git Repository
+
+Under **Source Code Management → Git**:
+
+| Field          | Value                                                    |
+| -------------- | -------------------------------------------------------- |
+| Repository URL | `git@github.com:YOUR_USERNAME/jenkins-httpd-project.git` |
+| Credentials    | `github-ssh`                                             |
+| Branch         | `*/main`                                                 |
+
+### B. Configure Build Steps
+
+1. Go to **Build Steps**.
+2. Select **Add build step → Execute shell**.
+3. Enter:
+
+```
+docker build -t my-httpd-website:freestyle .
+
+docker rm -f jenkins-httpd-freestyle || true
+
+docker run -d \
+--name jenkins-httpd-freestyle \
+--restart unless-stopped \
+-p 8088:80 \
+my-httpd-website:freestyle
+
+docker ps
+sleep 3
+curl -f http://localhost:8088
+```
+
+4. Click **Save**.
+5. Click **Build Now**.
+6. Open **Console Output** and verify success.
+
+## 6. Verify Freestyle Deployment
+
+**Run on: Debian machine**
+
+```
+sudo docker ps
+curl http://localhost:8088
+```
+
+**Open in browser:**
+
+`http://SERVER_IP:8088`
+
+## 7. Create Jenkinsfile
+
+**Run on: Debian machine, inside `~/jenkins-httpd-project`**
+
+```
+nano Jenkinsfile
+```
+
+Enter:
+
+```
+pipeline {
+    agent any
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t my-httpd-website:pipeline .'
+            }
+        }
+
+        stage('Remove Old Container') {
+            steps {
+                sh 'docker rm -f jenkins-httpd-pipeline || true'
+            }
+        }
+
+        stage('Deploy HTTPD') {
+            steps {
+                sh '''
+                    docker run -d \
+                    --name jenkins-httpd-pipeline \
+                    --restart unless-stopped \
+                    -p 8089:80 \
+                    my-httpd-website:pipeline
+                '''
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                sh 'docker ps'
+                sh 'sleep 3 && curl -f http://localhost:8089'
+            }
+        }
+    }
+}
+```
+
+Save the file.
+
+## 8. Push Jenkinsfile to GitHub
+
+**Run on: Debian machine**
+
+```
+git add Jenkinsfile
+git commit -m "Add HTTPD Jenkins pipeline"
+git push
+```
+
+## 9. Create Pipeline Project
+
+**Perform in: Jenkins browser dashboard**
+
+1. Click **New Item**.
+2. Enter `HTTPD-PIPELINE`.
+3. Select **Pipeline**.
+4. Click **OK**.
+
+### A. Configure Pipeline from SCM
+
+| Field          | Value                                                    |
+| -------------- | -------------------------------------------------------- |
+| Definition     | Pipeline script from SCM                                 |
+| SCM            | Git                                                      |
+| Repository URL | `git@github.com:YOUR_USERNAME/jenkins-httpd-project.git` |
+| Credentials    | `github-ssh`                                             |
+| Branch         | `*/main`                                                 |
+| Script Path    | `Jenkinsfile`                                            |
+
+### B. Execute Pipeline
+
+1. Click **Save**.
+2. Click **Build Now**.
+3. Open **Console Output**.
+4. Verify successful execution.
+
+## 10. Verify Pipeline Deployment
+
+**Run on: Debian machine**
+
+```
+sudo docker ps
+curl http://localhost:8089
+```
+
+**Open in browser:**
+
+`http://SERVER_IP:8089`
+
+## 11. Test Updated Website
+
+**Run on: Debian machine, inside project directory**
+
+Modify `index.html`:
+
+```
+<h1>Version 2 - HTTPD Deployment Successful!</h1>
+```
+
+Push changes:
+
+```
+git add .
+git commit -m "Update HTTPD website"
+git push
+```
+
+**Perform in: Jenkins browser dashboard**
+
+1. Open `HTTPD-FREESTYLE` and click **Build Now**.
+2. Open `HTTPD-PIPELINE` and click **Build Now**.
+
+Verify:
+
+```
+curl http://localhost:8088
+curl http://localhost:8089
+```
+
+## 12. Cleanup
+
+**Run on: Debian machine**
+
+```
+sudo docker rm -f jenkins-httpd-freestyle
+sudo docker rm -f jenkins-httpd-pipeline
+```
+====================================================================================================================================================================================
+# Practical 6 – AWS EC2 Instance Creation and Web Server Configuration
+
+## 1. Launch EC2 Instance
+
+**Perform in: AWS Console → EC2**
+
+1. Open AWS Console.
+2. Search for **EC2**.
+3. Select **Launch Instance**.
+4. Enter instance name: `ITISS-EC2-LAB`.
+5. Select Debian 13 AMI.
+6. Select an eligible instance type, such as `t2.micro` if available.
+7. Select or create a key pair if required by the launch wizard.
+8. Under Network Settings, configure inbound rules:
+
+| Type | Port | Source |
+|---|---:|---|
+| HTTP | 80 | My IP |
+
+9. Enable public IP assignment.
+10. Click **Launch Instance**.
+11. Wait until the instance state is `Running` and status checks pass.
+
+## 2. Connect to EC2
+
+**Perform in: AWS Console → EC2 → Instances**
+
+1. Select `ITISS-EC2-LAB`.
+2. Click **Connect**.
+3. Select **EC2 Instance Connect**.
+4. Click **Connect**.
+
+## 3. Update EC2 Packages
+
+**Run on: EC2 browser terminal**
+
+```bash
+sudo apt update
+sudo apt upgrade -y
+```
+
+## 4. Install Apache Web Server
+
+**Run on: EC2 browser terminal**
+
+```bash
+sudo apt install -y apache2
+```
+
+Start and enable Apache:
+
+```bash
+sudo systemctl enable --now apache2
+```
+
+Verify:
+
+```bash
+sudo systemctl status apache2
+```
+
+## 5. Create Website
+
+**Run on: EC2 browser terminal**
+
+```bash
+sudo nano /var/www/html/index.html
+```
+
+Enter:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AWS EC2 Practical</title>
+</head>
+<body>
+    <h1>Welcome to AWS EC2!</h1>
+    <h2>Apache Web Server Running Successfully</h2>
+</body>
+</html>
+```
+
+Save the file.
+
+## 6. Verify Website
+
+**Run on: EC2 browser terminal**
+
+```bash
+curl http://localhost
+```
+
+**Perform in: Your browser**
+
+Open:
+
+```text
+http://EC2_PUBLIC_IP
+```
+
+Verify that the webpage is displayed.
+
+## 7. Cleanup
+
+**Perform in: AWS Console → EC2 → Instances**
+
+1. Select the lab instance.
+2. Choose **Instance state → Terminate instance**.
+3. Confirm termination if the practical is complete.
+
+=====================================================================================================================================================================================
+6. AWS S3 – Simple Storage Service.
+
+We’ll create an S3 bucket, upload files, configure permissions, enable versioning and verify file access.
+
+# Practical 7 – AWS S3 Bucket Creation and File Management
+
+## 1. Create S3 Bucket
+
+**Perform in: AWS Console → S3**
+
+1. Open AWS Console.
+2. Search for **S3**.
+3. Click **Create bucket**.
+4. Enter a globally unique bucket name, for example:
+
+   `itiss-practical-lab-2026`
+5. Select your AWS Region.
+6. Keep **Block all public access** enabled.
+7. Enable **Bucket Versioning**.
+8. Click **Create bucket**.
+
+## 2. Upload Files
+
+**Perform in: AWS Console → S3**
+
+1. Open your newly created bucket.
+2. Click **Upload**.
+3. Click **Add files**.
+4. Select a file from your computer.
+5. Click **Upload**.
+
+## 3. Verify Uploaded Files
+
+**Perform in: AWS Console → S3 → Your bucket**
+
+1. Open the **Objects** tab.
+2. Verify that the uploaded file is listed.
+3. Select the file.
+4. Check its properties and storage information.
+
+## 4. Download File
+
+**Perform in: AWS Console → S3 → Your bucket**
+
+1. Select the uploaded file.
+2. Click **Download**.
+3. Verify that the file downloads successfully.
+
+## 5. Test Versioning
+
+**Perform in: AWS Console → S3**
+
+1. Open your bucket.
+2. Upload a file named `index.html`.
+3. Upload another file with the same name but different content.
+4. Open the file's **Versions** view.
+5. Verify that multiple versions are available.
+6. Select an older version to inspect or download it.
+
+## 6. Delete Object
+
+**Perform in: AWS Console → S3**
+
+1. Select the uploaded test object.
+2. Click **Delete**.
+3. Confirm deletion.
+
+With versioning enabled, deleting an object normally creates a delete marker rather than permanently removing its previous versions.
+
+## 7. Cleanup
+
+**Perform in: AWS Console → S3**
+
+1. Open the bucket.
+2. Delete all objects and object versions.
+3. Delete any delete markers.
+4. Return to the bucket list.
+5. Select the bucket.
+6. Click **Delete bucket**.
+7. Confirm deletion.
+
+
+
+Machine requirement: No EC2 instance is required. You can complete this practical directly through the AWS Console.
+====================================================================================================================================================================================
+7. AWS Lambda – Serverless Computing.
+
+# Practical 8 – AWS Lambda Function Creation and Execution
+
+## 1. Open AWS Lambda
+
+**Perform in: AWS Console**
+
+1. Open AWS Console.
+2. Search for **Lambda**.
+3. Select **AWS Lambda**.
+4. Click **Create function**.
+
+## 2. Create Lambda Function
+
+**Perform in: AWS Console → Lambda**
+
+1. Select **Author from scratch**.
+2. Function name: `ITISS-Lambda-Practical`.
+3. Runtime: Select an available Python 3.x runtime.
+4. Architecture: `x86_64`.
+5. Under Permissions, select **Create a new role with basic Lambda permissions**.
+6. Click **Create function**.
+
+## 3. Write Lambda Function
+
+**Perform in: AWS Console → Lambda → Code**
+
+Replace the existing code in `lambda_function.py` with:
+
+```
+import json
+
+def lambda_handler(event, context):
+
+    print("AWS Lambda function executed successfully!")
+
+    return {
+        'statusCode': 200,
+        'body': json.dumps('Hello from AWS Lambda!')
+    }
+```
+
+Click **Deploy**.
+
+## 4. Create Test Event
+
+**Perform in: AWS Console → Lambda → Test**
+
+1. Click **Test**.
+2. Select **Create new event**.
+3. Event name: `MyTestEvent`.
+4. Keep the default JSON event:
+
+```
+{
+    "name": "ITISS Student"
+}
+```
+
+5. Click **Save**.
+
+## 5. Execute Lambda Function
+
+**Perform in: AWS Console → Lambda → Test**
+
+1. Select `MyTestEvent`.
+2. Click **Test**.
+3. Check the execution result.
+
+Expected response:
+
+```
+{
+    "statusCode": 200,
+    "body": "\"Hello from AWS Lambda!\""
+}
+```
+
+## 6. Verify CloudWatch Logs
+
+**Perform in: AWS Console → CloudWatch**
+
+1. Open **CloudWatch**.
+2. Select **Logs → Log groups**.
+3. Open:
+
+```
+/aws/lambda/ITISS-Lambda-Practical
+```
+
+4. Open the latest log stream.
+5. Verify the execution message:
+
+```
+AWS Lambda function executed successfully!
+```
+
+## 7. Cleanup
+
+**Perform in: AWS Console → Lambda**
+
+1. Open `ITISS-Lambda-Practical`.
+2. Select **Actions → Delete**.
+3. Confirm deletion.
+
+
+
+Machine requirement: No EC2 instance or local VM is required. Complete this practical using the AWS Console.

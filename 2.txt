@@ -1,0 +1,728 @@
+8. AWS VPC with Public and Private Subnets
+
+## 1. Objective
+
+Create an AWS VPC with:
+
+- One public subnet.
+- One private subnet.
+- One EC2 instance in each subnet.
+- Install Apache HTTP Server on the private EC2 instance.
+- Test HTTP connectivity from the public EC2 instance to the private EC2 instance.
+
+## 2. Create VPC
+
+**Perform in: AWS Console → VPC**
+
+1. Open **Your VPCs → Create VPC**.
+2. Select **VPC only**.
+3. Enter:
+   - Name: `ditiss-lab`
+   - IPv4 CIDR: `172.20.0.0/16`
+4. Keep IPv6 disabled.
+5. Enable DNS resolution and DNS hostnames.
+6. Click **Create VPC**.
+
+## 3. Create Subnets
+
+**Perform in: VPC → Subnets → Create subnet**
+
+Select VPC: `ditiss-lab`.
+
+Create the following subnets:
+
+**Public subnet**
+
+- Name: `ditiss-public-subnet`
+- Availability Zone: Select one.
+- IPv4 CIDR: `172.20.5.0/24`
+
+**Private subnet**
+
+- Name: `ditiss-private-subnet`
+- Availability Zone: Use the same Availability Zone.
+- IPv4 CIDR: `172.20.10.0/24`
+
+Click **Create subnet**.
+
+## 4. Create and Attach Internet Gateway
+
+**Perform in: VPC → Internet gateways**
+
+1. Click **Create internet gateway**.
+2. Name: `ditiss-igw`.
+3. Click **Create internet gateway**.
+4. Select the gateway.
+5. Choose **Actions → Attach to a VPC**.
+6. Select `ditiss-lab`.
+7. Click **Attach internet gateway**.
+
+## 5. Create Public Route Table
+
+**Perform in: VPC → Route tables**
+
+1. Click **Create route table**.
+2. Name: `ditiss-public-rt`.
+3. VPC: `ditiss-lab`.
+4. Click **Create route table**.
+5. Open the route table → **Routes → Edit routes**.
+6. Add the route:
+   - Destination: `0.0.0.0/0`
+   - Target: Internet Gateway `ditiss-igw`
+7. Save changes.
+8. Open **Subnet associations → Edit subnet associations**.
+9. Select `ditiss-public-subnet`.
+10. Save associations.
+
+## 6. Create NAT Gateway
+
+**Perform in: VPC → NAT gateways**
+
+1. Click **Create NAT gateway**.
+2. Name: `ditiss-nat`.
+3. Subnet: `ditiss-public-subnet`.
+4. Connectivity type: **Public**.
+5. Allocate a new Elastic IP.
+6. Click **Create NAT gateway**.
+7. Wait until its status becomes **Available**.
+
+## 7. Create Private Route Table
+
+**Perform in: VPC → Route tables**
+
+1. Click **Create route table**.
+2. Name: `ditiss-private-rt`.
+3. VPC: `ditiss-lab`.
+4. Click **Create route table**.
+5. Open the route table → **Routes → Edit routes**.
+6. Add the route:
+   - Destination: `0.0.0.0/0`
+   - Target: NAT Gateway `ditiss-nat`
+7. Save changes.
+8. Open **Subnet associations → Edit subnet associations**.
+9. Select `ditiss-private-subnet`.
+10. Save associations.
+
+## 8. Create Security Groups
+
+**Perform in: VPC → Security groups**
+
+Create two security groups in `ditiss-lab`.
+
+**Public EC2 security group**
+
+- Name: `ditiss-public-sg`
+- Inbound rule:
+  - Type: SSH
+  - Port: 22
+  - Source: My IP
+- Outbound: Keep the default outbound rule.
+
+**Private EC2 security group**
+
+- Name: `ditiss-private-sg`
+- Inbound rule:
+  - Type: HTTP
+  - Port: 80
+  - Source: Security group `ditiss-public-sg`
+- Outbound: Keep the default outbound rule.
+
+## 9. Launch Public EC2 Instance
+
+**Perform in: AWS Console → EC2 → Instances → Launch instances**
+
+1. Name: `ditiss-public-ec2`.
+2. AMI: Debian 13.
+3. Select an available low-cost instance type.
+4. Under Network settings, click **Edit**.
+5. Configure:
+   - VPC: `ditiss-lab`
+   - Subnet: `ditiss-public-subnet`
+   - Auto-assign public IP: Enable
+   - Security group: `ditiss-public-sg`
+6. Launch the instance.
+
+## 10. Launch Private EC2 Instance
+
+**Perform in: AWS Console → EC2 → Instances → Launch instances**
+
+1. Name: `ditiss-private-ec2`.
+2. AMI: Debian 13.
+3. Select an available low-cost instance type.
+4. Under Network settings, click **Edit**.
+5. Configure:
+   - VPC: `ditiss-lab`
+   - Subnet: `ditiss-private-subnet`
+   - Auto-assign public IP: Disable
+   - Security group: `ditiss-private-sg`
+6. Expand **Advanced details → User data**.
+7. Enter this script:
+
+```
+#!/bin/bash
+apt-get update
+apt-get install -y apache2
+systemctl enable --now apache2
+echo "Apache running on private EC2 instance" > /var/www/html/index.html
+```
+
+8. Launch the instance.
+9. Wait until both EC2 instances are running and the private instance has completed its startup script.
+
+## 11. Connect to Public EC2 Instance
+
+**Perform in: AWS Console → EC2 → Instances**
+
+1. Select `ditiss-public-ec2`.
+2. Click **Connect**.
+3. Select **EC2 Instance Connect**.
+4. Click **Connect** to open the browser terminal.
+
+## 12. Test Private EC2 Connectivity
+
+**Perform in: Public EC2 browser terminal**
+
+1. Find the private EC2 instance's private IPv4 address in the EC2 console.
+2. Run the following command, replacing the address:
+
+```
+curl http://PRIVATE_EC2_PRIVATE_IP
+```
+
+Expected output:
+
+```
+Apache running on private EC2 instance
+```
+
+## 13. Verify Network Configuration
+
+**Perform in: AWS Console**
+
+Check the following:
+
+1. Public EC2 is in `ditiss-public-subnet`.
+2. Private EC2 is in `ditiss-private-subnet`.
+3. Public EC2 has a public IPv4 address.
+4. Private EC2 has no public IPv4 address.
+5. Public route table has a route to the Internet Gateway.
+6. Private route table has a route to the NAT Gateway.
+7. Private security group allows HTTP port 80 from `ditiss-public-sg`.
+
+## 14. Cleanup AWS Resources
+
+**Perform in: AWS Console**
+
+To avoid unnecessary charges:
+
+1. Terminate both EC2 instances.
+2. Delete the NAT Gateway and wait until deletion completes.
+3. Release the Elastic IP allocated for the NAT Gateway.
+4. Delete the private and public route tables after removing their subnet associations, if required.
+5. Detach and delete the Internet Gateway.
+6. Delete both subnets.
+7. Delete the security groups.
+8. Delete the VPC.
+
+
+
+Add a no-NAT alternativeClarify the EC2 access requirement
+
+
+=====================================================================================================================================================================================
+9. Ansible Setup and Web Server Deployment
+| Debian Machine 1 | Ansible Controller |
+| Debian Machine 2 | Managed Target
+
+
+
+Note the target machine's IP address.
+
+## 3. Install Ansible
+
+**Perform on: Controller machine**
+
+```
+sudo apt update
+sudo apt install -y ansible openssh-client
+ansible --version
+```
+
+## 4. Configure SSH Key-Based Authentication
+
+**Perform on: Controller machine**
+
+Generate an SSH key:
+
+```
+ssh-keygen -t ed25519
+```
+
+
+## 5. Create Ansible Inventory
+
+**Perform on: Controller machine**
+
+Create a working directory:
+
+```
+mkdir -p ~/ansible-lab
+cd ~/ansible-lab
+```
+
+Create the inventory file:
+
+```
+nano inventory
+```
+
+Enter:
+
+```
+[webservers]
+TARGET_IP ansible_user=USERNAME
+```
+
+Replace `TARGET_IP` and `USERNAME` with the actual target details.
+
+Save and exit.
+
+## 6. Verify Ansible Connectivity
+
+**Perform on: Controller machine**
+
+Run:
+
+```
+ansible -i inventory -m ping all
+```
+
+Expected result:
+
+```
+TARGET_IP | SUCCESS => {
+    "changed": false,
+    "ping": "pong"
+}
+```
+
+## 7. Create Ansible Playbook
+
+**Perform on: Controller machine**
+
+Create the playbook:
+
+```
+nano apache.yml
+```
+
+Enter:
+
+```
+---
+- name: Install and configure Apache web server
+  hosts: webservers
+  become: true
+
+  tasks:
+    - name: Install Apache
+      ansible.builtin.apt:
+        name: apache2
+        state: present
+        update_cache: true
+
+    - name: Start and enable Apache
+      ansible.builtin.service:
+        name: apache2
+        state: started
+        enabled: true
+
+    - name: Create default webpage
+      ansible.builtin.copy:
+        content: "Apache deployed using Ansible!"
+        dest: /var/www/html/index.html
+        mode: '0644'
+```
+
+Save and exit.
+
+## 8. Execute the Playbook
+
+**Perform on: Controller machine**
+
+Check the playbook syntax:
+
+```
+ansible-playbook -i inventory apache.yml --syntax-check
+```
+
+Execute the playbook:
+
+```
+ansible-playbook -i inventory apache.yml
+```
+
+## 9. Verify Apache Service
+
+**Perform on: Controller machine**
+
+Check Apache service status on the target:
+
+```
+ansible -i inventory webservers -b -m command -a "systemctl status apache2 --no-pager"
+```
+
+Test the webpage:
+
+```
+curl http://TARGET_IP
+```
+
+Expected response:
+
+```
+Apache deployed using Ansible!
+```
+
+You can also open this address in a browser:
+
+```
+http://TARGET_IP
+```
+
+Allow inbound TCP port 80 on the target machine's firewall/security group only from the controller or your required testing network.
+
+======================================================================================================================================================================================
+10. Puppet Configuration Management
+
+## 1. Objective
+
+- Set up Puppet Server and Puppet Agent.
+- Establish communication between server and agent.
+- Configure certificate-based authentication.
+- Create a Puppet manifest.
+- Install and manage Apache using Puppet.
+- Verify configuration on the agent machine.
+
+## 2. Lab Setup
+
+**Machines required: 2 Debian 13 machines**
+
+| Machine | Hostname | Role |
+|---|---|---|
+| Machine 1 | `puppet-server` | Puppet Server |
+| Machine 2 | `puppet-agent` | Managed Agent |
+
+Both machines must communicate over the network.
+
+Use these example IP addresses throughout the practical. Replace them with your actual IP addresses.
+
+- Server: `192.168.1.10`
+- Agent: `192.168.1.20`
+
+## 3. Configure Hostname Resolution
+
+**Perform on: Both machines**
+
+On the server:
+
+```bash
+sudo hostnamectl set-hostname puppet-server
+```
+
+On the agent:
+
+```bash
+sudo hostnamectl set-hostname puppet-agent
+```
+
+On both machines, edit the hosts file:
+
+```bash
+sudo nano /etc/hosts
+```
+
+Add:
+
+```text
+192.168.1.10 puppet-server
+192.168.1.20 puppet-agent
+```
+
+Save and exit.
+
+Verify:
+
+```bash
+ping -c 3 puppet-server
+ping -c 3 puppet-agent
+```
+
+## 4. Install Puppet Server
+
+**Perform on: Puppet Server machine**
+
+Install the Puppet 8 repository package:
+
+```bash
+wget https://apt.puppet.com/puppet8-release-trixie.deb
+sudo dpkg -i puppet8-release-trixie.deb
+sudo apt update
+```
+
+Install Puppet Server and Java:
+
+```bash
+sudo apt install -y openjdk-17-jre puppetserver
+```
+
+Verify:
+
+```bash
+sudo /opt/puppetlabs/bin/puppetserver --version
+```
+
+## 5. Configure Puppet Server
+
+**Perform on: Puppet Server machine**
+
+Set the server's certificate name:
+
+```bash
+sudo /opt/puppetlabs/bin/puppet config set certname puppet-server --section main
+```
+
+Configure the server hostname:
+
+```bash
+sudo /opt/puppetlabs/bin/puppet config set server puppet-server --section main
+```
+
+Reduce Java memory for a small lab VM:
+
+```bash
+sudo nano /etc/default/puppetserver
+```
+
+Set:
+
+```text
+JAVA_ARGS="-Xms512m -Xmx512m"
+```
+
+Save and exit.
+
+Enable and start Puppet Server:
+
+```bash
+sudo systemctl enable --now puppetserver
+```
+
+Verify:
+
+```bash
+sudo systemctl status puppetserver --no-pager
+```
+
+## 6. Install Puppet Agent
+
+**Perform on: Puppet Agent machine**
+
+Install the same Puppet 8 repository package:
+
+```bash
+wget https://apt.puppet.com/puppet8-release-trixie.deb
+sudo dpkg -i puppet8-release-trixie.deb
+sudo apt update
+```
+
+Install Puppet Agent:
+
+```bash
+sudo apt install -y puppet-agent
+```
+
+Verify:
+
+```bash
+sudo /opt/puppetlabs/bin/puppet --version
+```
+
+## 7. Configure Puppet Agent
+
+**Perform on: Puppet Agent machine**
+
+Set the Puppet Server address:
+
+```bash
+sudo /opt/puppetlabs/bin/puppet config set server puppet-server --section main
+```
+
+Set the agent certificate name:
+
+```bash
+sudo /opt/puppetlabs/bin/puppet config set certname puppet-agent --section main
+```
+
+Verify configuration:
+
+```bash
+sudo /opt/puppetlabs/bin/puppet config print server
+sudo /opt/puppetlabs/bin/puppet config print certname
+```
+
+## 8. Generate Agent Certificate Request
+
+**Perform on: Puppet Agent machine**
+
+Run:
+
+```bash
+sudo /opt/puppetlabs/bin/puppet agent --test
+```
+
+The agent contacts the server and submits a certificate signing request.
+
+## 9. Sign Agent Certificate
+
+**Perform on: Puppet Server machine**
+
+List pending certificate requests:
+
+```bash
+sudo /opt/puppetlabs/bin/puppetserver ca list
+```
+
+Sign the agent certificate:
+
+```bash
+sudo /opt/puppetlabs/bin/puppetserver ca sign --certname puppet-agent
+```
+
+Verify:
+
+```bash
+sudo /opt/puppetlabs/bin/puppetserver ca list --all
+```
+
+## 10. Create Puppet Manifest
+
+**Perform on: Puppet Server machine**
+
+Create the manifest directory:
+
+```bash
+sudo mkdir -p /etc/puppetlabs/code/environments/production/manifests
+```
+
+Create the manifest:
+
+```bash
+sudo nano /etc/puppetlabs/code/environments/production/manifests/site.pp
+```
+
+Enter:
+
+```puppet
+node 'puppet-agent' {
+
+  package { 'apache2':
+    ensure => installed,
+  }
+
+  service { 'apache2':
+    ensure  => running,
+    enable  => true,
+    require => Package['apache2'],
+  }
+
+  file { '/var/www/html/index.html':
+    ensure  => file,
+    content => 'Apache configured using Puppet!',
+    mode    => '0644',
+    require => Package['apache2'],
+  }
+
+}
+```
+
+Save and exit.
+
+## 11. Execute Puppet Agent
+
+**Perform on: Puppet Agent machine**
+
+Run:
+
+```bash
+sudo /opt/puppetlabs/bin/puppet agent --test
+```
+
+Puppet retrieves the catalog from the server and applies the configuration.
+
+## 12. Verify Apache
+
+**Perform on: Puppet Agent machine**
+
+Check Apache service:
+
+```bash
+sudo systemctl status apache2 --no-pager
+```
+
+Check webpage content:
+
+```bash
+cat /var/www/html/index.html
+```
+
+Expected output:
+
+```text
+Apache configured using Puppet!
+```
+
+Test HTTP locally:
+
+```bash
+curl http://localhost
+```
+
+Expected response:
+
+```text
+Apache configured using Puppet!
+```
+
+## 13. Verify Configuration Management
+
+**Perform on: Puppet Agent machine**
+
+Run Puppet again:
+
+```bash
+sudo /opt/puppetlabs/bin/puppet agent --test
+```
+
+Puppet should report that no changes are required if the system already matches the manifest.
+
+## 14. Cleanup
+
+**Perform on: Puppet Agent machine**
+
+Stop and disable the Puppet Agent service:
+
+```bash
+sudo systemctl disable --now puppet
+```
+
+**Perform on: Puppet Server machine**
+
+Stop and disable Puppet Server:
+
+```bash
+sudo systemctl disable --now puppetserver
+```
+
+Remove the lab resources only if no longer required.
+
