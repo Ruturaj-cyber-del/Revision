@@ -1,0 +1,112 @@
+# Ansible – Short Command Notes
+
+Setup: Two Debian 13 machines.
+
+- Controller: Machine where Ansible commands are executed.
+- Managed Node: Machine Ansible controls.
+
+### 1. Install Ansible (Controller)
+
+```
+sudo apt update
+sudo apt install ansible -y
+ansible --version
+```
+
+### 2. Generate SSH key (Controller)
+
+```
+ssh-keygen -t ed25519
+```
+
+Press Enter to accept the default file location.
+
+### 3. Copy SSH key to Managed Node (Controller)
+
+```
+ssh-copy-id USER@MANAGED_NODE_IP
+```
+
+Test SSH:
+
+```
+ssh USER@MANAGED_NODE_IP
+```
+
+### 4. Create Inventory File (Controller)
+
+```
+sudo nano /etc/ansible/hosts
+```
+
+Add:
+
+```
+[webservers]
+MANAGED_NODE_IP ansible_user=USER
+```
+
+### 5. Test Ansible Connectivity (Controller)
+
+```
+ansible all -m ping
+```
+
+Expected result: `"ping": "pong"`
+
+### 6. Run a Command on Managed Node
+
+```
+ansible all -m command -a "hostname"
+```
+
+### 7. Create Apache Playbook (Controller)
+
+```
+nano apache.yml
+```
+
+Add:
+
+```
+---
+- name: Install and start Apache
+  hosts: webservers
+  become: yes
+
+  tasks:
+    - name: Install Apache
+      apt:
+        name: apache2
+        state: present
+        update_cache: yes
+
+    - name: Start Apache
+      service:
+        name: apache2
+        state: started
+        enabled: yes
+
+    - name: Create web page
+      copy:
+        content: "Apache deployed using Ansible!"
+        dest: /var/www/html/index.html
+```
+
+### 8. Execute Playbook (Controller)
+
+```
+ansible-playbook apache.yml
+```
+
+### 9. Verify Apache (Managed Node)
+
+```
+sudo systemctl status apache2
+curl http://localhost
+```
+
+You can also open this in your browser:
+
+```
+http://MANAGED_NODE_IP
